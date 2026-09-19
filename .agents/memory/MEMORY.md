@@ -1,0 +1,1 @@
+- [Expo tab preview](expo-web-tabs.md) — gate liquid-glass NativeTabs to iOS; use the classic tab layout for Android and web previews.

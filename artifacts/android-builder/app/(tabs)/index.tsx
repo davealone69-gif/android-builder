@@ -57,23 +57,28 @@ function ActionButton({
   icon,
   onPress,
   secondary = false,
+  disabled = false,
 }: {
   label: string;
   icon: keyof typeof Feather.glyphMap;
   onPress: () => void;
   secondary?: boolean;
+  disabled?: boolean;
 }) {
   const colors = useColors();
   return (
     <Pressable
       onPress={() => {
+        if (disabled) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
       }}
+      disabled={disabled}
       style={({ pressed }) => [
         styles.actionButton,
         { backgroundColor: secondary ? colors.secondary : colors.primary },
-        pressed && { opacity: 0.78, transform: [{ scale: 0.98 }] },
+        disabled && { opacity: 0.55 },
+        pressed && !disabled && { opacity: 0.78, transform: [{ scale: 0.98 }] },
       ]}
     >
       <Feather
@@ -133,6 +138,8 @@ function ProjectResult({
         <ActionButton label="Self-repair" icon="tool" onPress={onRepair} secondary />
         {isBuilt ? (
           <ActionButton label="Download APK" icon="download" onPress={onDownload} />
+        ) : isBuilding ? (
+          <ActionButton label="Building on GitHub..." icon="loader" onPress={() => undefined} disabled />
         ) : (
           <ActionButton label="Build on GitHub" icon="github" onPress={onBuild} />
         )}
@@ -158,20 +165,29 @@ export default function BuildScreen() {
     repairProject,
     queueGitHubBuild,
     isGitHubConfigured,
+    lastError,
   } = useBuilder();
   const [prompt, setPrompt] = useState('');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const activeProject = useMemo(
     () => projects.find((project) => project.id === activeProjectId) ?? projects[0],
     [activeProjectId, projects],
   );
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!prompt.trim()) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const project = createProject(prompt);
-    setActiveProjectId(project.id);
-    setPrompt('');
+    setIsGenerating(true);
+    try {
+      const project = await createProject(prompt);
+      if (project) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setActiveProjectId(project.id);
+        setPrompt('');
+      }
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -189,7 +205,7 @@ export default function BuildScreen() {
         </View>
         <View style={[styles.aiBadge, { borderColor: colors.border, backgroundColor: colors.card }]}>
           <Feather name="cpu" size={14} color={colors.primary} />
-          <Text style={[styles.aiBadgeText, { color: colors.primary }]}>FREE AI</Text>
+            <Text style={[styles.aiBadgeText, { color: colors.primary }]}>LOCAL AI</Text>
         </View>
       </View>
 
@@ -219,14 +235,18 @@ export default function BuildScreen() {
           <LanguageToggle value={selectedLanguage} onChange={setSelectedLanguage} />
           <Pressable
             onPress={handleGenerate}
-            disabled={!prompt.trim()}
+            disabled={!prompt.trim() || isGenerating}
             style={({ pressed }) => [
               styles.generateButton,
-              { backgroundColor: prompt.trim() ? colors.primary : colors.secondary },
+              { backgroundColor: prompt.trim() && !isGenerating ? colors.primary : colors.secondary },
               pressed && { opacity: 0.8 },
             ]}
           >
-            <Feather name="arrow-up" size={18} color={prompt.trim() ? colors.primaryForeground : colors.mutedForeground} />
+            {isGenerating ? (
+              <ActivityIndicator size="small" color={colors.mutedForeground} />
+            ) : (
+              <Feather name="arrow-up" size={18} color={prompt.trim() ? colors.primaryForeground : colors.mutedForeground} />
+            )}
           </Pressable>
         </View>
       </View>
@@ -272,10 +292,17 @@ export default function BuildScreen() {
         </View>
       ) : null}
 
+      {lastError ? (
+        <View style={[styles.errorRow, { backgroundColor: '#3A2028' }]}>
+          <Feather name="alert-circle" size={15} color="#FF9AAE" />
+          <Text style={[styles.errorText, { color: '#FFCBD5' }]}>{lastError}</Text>
+        </View>
+      ) : null}
+
       <View style={[styles.infoRow, { backgroundColor: colors.muted }]}>
         <Feather name="shield" size={15} color={colors.primary} />
         <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
-          Your code stays on this device until you choose to send a build to GitHub.
+          Code generation uses your configured local llama.cpp server. Builds use the connected GitHub account and run in GitHub Actions.
         </Text>
       </View>
     </ScrollView>
@@ -327,4 +354,6 @@ const styles = StyleSheet.create({
   repairText: { flex: 1, fontSize: 11, lineHeight: 16 },
   infoRow: { marginHorizontal: 18, marginTop: 14, borderRadius: 14, padding: 12, flexDirection: 'row', gap: 9, alignItems: 'center' },
   infoText: { flex: 1, fontSize: 11, lineHeight: 16 },
+  errorRow: { marginHorizontal: 18, marginTop: 14, borderRadius: 14, padding: 12, flexDirection: 'row', gap: 9, alignItems: 'flex-start' },
+  errorText: { flex: 1, fontSize: 11, lineHeight: 16 },
 });

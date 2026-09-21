@@ -52,24 +52,12 @@ export default function ProjectsScreen() {
             </Text>
           </View>
         </View>
-        <TextInput
-          value={githubConfig.login}
-          onChangeText={(login) => setGitHubConfig({ ...githubConfig, login })}
-          placeholder="GitHub login"
-          placeholderTextColor={colors.mutedForeground}
-          autoCapitalize="none"
-          style={[styles.connectionInput, { color: colors.foreground, borderColor: colors.border }]}
-        />
-        <TextInput
-          value={githubConfig.token}
-          onChangeText={(token) => setGitHubConfig({ ...githubConfig, token })}
-          placeholder="Personal access token"
-          placeholderTextColor={colors.mutedForeground}
-          autoCapitalize="none"
-          autoCorrect={false}
-          secureTextEntry
-          style={[styles.connectionInput, { color: colors.foreground, borderColor: colors.border }]}
-        />
+        <View style={[styles.connectorNote, { backgroundColor: colors.muted }]}>
+          <Feather name="shield" size={13} color={colors.primary} />
+          <Text style={[styles.tokenNoteText, { color: colors.mutedForeground }]}>
+            GitHub is connected through the server-side Replit connector. No personal token is stored in this app.
+          </Text>
+        </View>
         <TextInput
           value={githubConfig.repository}
           onChangeText={(repository) => setGitHubConfig({ ...githubConfig, repository })}
@@ -82,7 +70,7 @@ export default function ProjectsScreen() {
         <View style={[styles.tokenNote, { backgroundColor: colors.muted }]}>
           <Feather name="lock" size={13} color={colors.primary} />
           <Text style={[styles.tokenNoteText, { color: colors.mutedForeground }]}>
-            Your token is held in memory only and is not saved to the device.
+            Enter the repository that the connected GitHub account can write to.
           </Text>
         </View>
       </View>
@@ -112,7 +100,8 @@ export default function ProjectsScreen() {
                 <Text style={[styles.detail, { color: colors.mutedForeground }]}>{project.updated}</Text>
               </View>
               <View style={styles.actions}>
-                <Pressable
+                 <Pressable
+                   disabled={building}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     repairProject(project.id);
@@ -122,14 +111,15 @@ export default function ProjectsScreen() {
                   <Feather name="tool" size={14} color={colors.secondaryForeground} />
                   <Text style={[styles.secondaryText, { color: colors.secondaryForeground }]}>Repair</Text>
                 </Pressable>
-                <Pressable
+                 <Pressable
+                   disabled={building}
                   onPress={() => {
                     if (built) {
                       if (project.apkUrl) Linking.openURL(project.apkUrl);
                       return;
                     }
                     if (!isGitHubConfigured) {
-                      Alert.alert('Connect GitHub first', 'Enter your login, token, and repository above.');
+                       Alert.alert('Connect GitHub first', 'Enter the owner/repository path above.');
                       return;
                     }
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -137,8 +127,8 @@ export default function ProjectsScreen() {
                   }}
                   style={({ pressed }) => [styles.primaryButton, { backgroundColor: colors.primary }, pressed && { opacity: 0.75 }]}
                 >
-                  <Feather name={built ? 'download' : 'github'} size={14} color={colors.primaryForeground} />
-                  <Text style={[styles.primaryText, { color: colors.primaryForeground }]}>{built ? 'Download APK' : 'Build on GitHub'}</Text>
+                 <Feather name={built ? 'download' : 'github'} size={14} color={colors.primaryForeground} />
+                 <Text style={[styles.primaryText, { color: colors.primaryForeground }]}>{built ? 'Download APK' : building ? 'Building...' : 'Build on GitHub'}</Text>
                 </Pressable>
               </View>
             </View>
@@ -152,7 +142,7 @@ export default function ProjectsScreen() {
         </View>
         <View style={styles.githubCopy}>
           <Text style={[styles.githubTitle, { color: colors.foreground }]}>GitHub Actions handoff</Text>
-          <Text style={[styles.githubText, { color: colors.mutedForeground }]}>Builds run from a generated workflow. Connect a repository when you are ready for real APK artifacts.</Text>
+          <Text style={[styles.githubText, { color: colors.mutedForeground }]}>Each build commits a real Android project and workflow, then waits for the live GitHub Actions artifact.</Text>
         </View>
       </View>
     </ScrollView>
@@ -196,5 +186,6 @@ const styles = StyleSheet.create({
   connectionStatusText: { fontSize: 10, fontWeight: '700' },
   connectionInput: { minHeight: 42, borderWidth: 1, borderRadius: 11, paddingHorizontal: 12, marginBottom: 8, fontSize: 13 },
   tokenNote: { borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
+  connectorNote: { borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   tokenNoteText: { flex: 1, fontSize: 10, lineHeight: 15 },
 });

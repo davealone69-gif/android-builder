@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: builder
+    description: AI code generation and GitHub build operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,83 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /ai/generate:
+    post:
+      operationId: generateProjectCode
+      tags: [builder]
+      summary: Generate project code with the configured local AI server
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateCodeRequest"
+      responses:
+        "200":
+          description: Generated code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateCodeResponse"
+        "503":
+          description: Local AI server unavailable
+  /github/builds:
+    post:
+      operationId: startGithubBuild
+      tags: [builder]
+      summary: Commit an Android project and start a GitHub Actions build
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GithubBuildRequest"
+      responses:
+        "202":
+          description: Build queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GithubBuildResponse"
+  /github/builds/{buildId}:
+    get:
+      operationId: getGithubBuildStatus
+      tags: [builder]
+      summary: Read the live status of a GitHub Actions build
+      parameters:
+        - name: buildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Live build status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GithubBuildStatus"
+        "404":
+          description: Build not found
+  /github/builds/{buildId}/download:
+    get:
+      operationId: downloadGithubBuild
+      tags: [builder]
+      summary: Download the APK artifact from a successful GitHub Actions build
+      parameters:
+        - name: buildId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: APK artifact archive
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
 components:
   schemas:
     HealthStatus:
@@ -33,4 +112,83 @@ components:
           type: string
       required:
         - status
+    GenerateCodeRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          minLength: 1
+        language:
+          type: string
+          enum: [Kotlin, Python]
+        learningContext:
+          type: string
+      required: [prompt, language]
+    GenerateCodeResponse:
+      type: object
+      properties:
+        projectName:
+          type: string
+        language:
+          type: string
+          enum: [Kotlin, Python]
+        code:
+          type: string
+        model:
+          type: string
+      required: [projectName, language, code, model]
+    GithubBuildRequest:
+      type: object
+      properties:
+        repository:
+          type: string
+          minLength: 3
+        projectName:
+          type: string
+          minLength: 1
+        language:
+          type: string
+          enum: [Kotlin, Python]
+        prompt:
+          type: string
+        code:
+          type: string
+      required: [repository, projectName, language, prompt, code]
+    GithubBuildResponse:
+      type: object
+      properties:
+        buildId:
+          type: string
+        status:
+          type: string
+          enum: [queued, in_progress]
+        repository:
+          type: string
+        commitSha:
+          type: string
+        actionsUrl:
+          type: string
+          format: uri
+      required: [buildId, status, repository, commitSha, actionsUrl]
+    GithubBuildStatus:
+      type: object
+      properties:
+        buildId:
+          type: string
+        status:
+          type: string
+          enum: [queued, in_progress, completed, failed]
+        conclusion:
+          type: string
+          nullable: true
+        actionsUrl:
+          type: string
+          format: uri
+        downloadUrl:
+          type: string
+          format: uri
+          nullable: true
+        message:
+          type: string
+      required: [buildId, status, actionsUrl, message]
 
